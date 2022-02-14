@@ -1,0 +1,286 @@
+---
+title: "Midterm presentation stat 641"
+Group: 4
+output: pdf_document
+---
+
+
+# Example 1:
+# Description about the mouse dataset:
+A small randomized experiment were done with 16 mice. 7 to treatment group and 9 to control group. Treatment was intended to prolong survival after a test surgery.
+```{r}
+library(bootstrap)
+library(tidyverse)
+library(infer)
+
+# Data
+treat <- mouse.t
+ctrl <-  mouse.c
+
+t1 <- length(treat)
+t2 <- length(ctrl)
+
+Group <- as.factor( c(rep(1, t1), rep(2, t2)))
+
+Group <- as.factor(ifelse(Group == 1, "treat", "control"))
+
+
+mouse <- data.frame(Group, Survival_time = c(treat, ctrl))
+
+# Create an another variable called mouse1 which shuffles the original dataset.
+mouse1 <- mouse %>% sample_n(size = 16)
+head(mouse1,5)
+
+# Exploratory data analysis
+mouse1 %>%
+  group_by(Group) %>%
+  summarise(
+    count = n(),
+    Mean = round(mean(Survival_time),2)
+  )
+```
+```{r}
+# Visualize barplot using a ggplot2 package
+mouse1 %>%
+  ggplot(aes(x = Group, fill = Group)) + geom_bar() + labs(title = "Treatment Versus Control Group", x = "Groups", y = "Count") + scale_y_continuous(breaks = seq(from = 0, to = 10,by= 2))+theme(panel.grid.major = element_blank())
+
+# Visualize 
+mouse1 %>%
+  ggplot(aes(x = Group,y = Survival_time)) + geom_point(aes(col = Group)) + labs(title = "Treatment Versus Control Group", x = "Groups", y = "Survival time (in days)") + scale_y_continuous(breaks = seq(from = 0, to = 200,by= 20)) +theme(panel.grid.major = element_blank())
+```
+
+
+```{r}
+# Calculate an observed test statistic.
+obs_test_stat <- mouse1 %>%
+  specify(Survival_time ~ Group)%>%
+  calculate(stat = "diff in means", order = c("treat","control"))
+round(obs_test_stat,2)
+
+# To double check manually computed observed test statistics.
+obs_diff_mean = 86.86	- 56.22
+obs_diff_mean
+```
+
+# Population of parameter interest: 
+Difference in the population means 
+$(\mu_{mt} - \mu_{mc})$
+
+# Hypothesis testing:
+(One-sided alternative)
+
+* In words:
+
+$H_0:$ There is no difference in the means of both groups.
+
+vs.
+
+$H_1:$ There is a significant difference in the means where the mice in the treatment group are favored.
+
+* In notations:
+
+$H_0 : \mu_{mt} - \mu_{mc} = 0$
+
+vs.
+
+$H_1 : \mu_{mt} - \mu_{mc} > 0$
+
+# Point estimate/test statistics: 
+
+* The point estimate is the difference in the sample means
+
+$\hat{\bar x_{mt}} - \hat{\bar x_{mc}}$
+
+or
+
+${\hat\mu_{mt}} - {\hat\mu_{mc}}$
+
+# Observed test statistics:
+Observed difference in the means of both groups = 30.64.
+
+# Null distribution
+Null distribution is the sampling distribution of the test statistic assuming the null hypothesis is true. 
+
+```{r}
+# Create the null distribution.
+null_dist <- mouse1 %>%
+  specify(Survival_time ~ Group)%>%
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, type = "permute") %>%
+  calculate(stat = "diff in means", order = c("treat","control"))
+head(null_dist,5)
+
+# Visualize the null distribution.
+null_dist %>%
+  visualize() +
+  shade_p_value(obs_stat = obs_test_stat, direction = "right", col = "blue", lty = 1, lwd = 1)
+```
+
+# p-value: 
+p-value is the probability of obtaining a test statistic just as extreme or more extreme than the observed test statistic assuming the null hypothesis is true. 
+```{r}
+# Compute the p-value.
+null_dist %>%
+  get_p_value(obs_stat = obs_test_stat, direction = "right")
+```
+
+Since the p-value > 0.05 (significance $\alpha$ level) we failed to reject the null hypothesis and concluded that there is no significant difference in the means of the both groups.
+
+# EXAMPLE 2
+A study in 1994 examined 491 dogs that had developed cancer and 945 dogs as a control group to determine whether there is an increased risk of cancer in dogs that are exposed to the herbicide 2,4-Dichlorophenoxyacetic acid (2,4-D).
+```{r}
+library(openintro)
+cancer_in_dogs <- openintro::cancer_in_dogs
+table(cancer_in_dogs)
+dim(cancer_in_dogs)
+```
+
+```{r}
+cancer_in_dogs$response <- ifelse(cancer_in_dogs$response == "no cancer", 0, 1)
+```
+```{r}
+head(cancer_in_dogs,5)
+```
+
+```{r}
+cancer_in_dogs %>%
+  group_by(order) %>%
+  summarise(
+    count = n(),
+    Mean = round(mean(response),2)
+  )
+# visualize
+cancer_in_dogs %>%
+  ggplot(aes(x = order,fill = response)) +geom_bar() + labs(fill = "Cancer type")
+
+```
+
+```{r}
+# Calculate an observed test statistic.
+obs_test_stat <- cancer_in_dogs %>%
+  specify(response ~ order)%>%
+  calculate(stat = "diff in means", order = c("2,4-D","no 2,4-D"))
+round(obs_test_stat,2)
+
+# To double check manually computed observed test statistics.
+obs_diff_mean = 0.39	- 0.32
+obs_diff_mean
+```
+
+# Population of parameter interest: 
+Difference in the dog population means 
+$(\mu_{1} - \mu_{2})$
+$\mu_1 = dog \ population \ exposed \ to \ 2,4-D$
+$\mu_2 = dog \ population \ exposed \ to \ no \ 2,4-D$
+
+# Hypothesis testing:
+(One-sided alternative)
+
+In words:
+$H_0:$ There is no difference in the mean of the dog population that are exposed to the herbicide 2,4,D and no 2,4,D.
+
+vs.
+
+$H_1:$ There is a significant difference in the means, where the dogs that are exposed to 2,4-D are favored.
+
+In notations:
+$H_0 : \mu_{1} - \mu_{2} = 0$
+
+vs.
+
+$H_1 : \mu_{1} - \mu_{2} > 0$
+
+# Point estimate/test statistics: 
+The point estimate is the difference in the sample means
+$\hat{\bar{x}_{1}} - \hat{\bar{x}_{2}}$
+
+or
+
+${\hat\mu_{1}} - {\hat\mu_{2}}$
+
+# Observed test statistics:
+Observed difference in the means of both groups = 0.07.
+
+# Null distribution
+Null distribution is the sampling distribution of the test statistic assuming the null hypothesis is true. 
+
+```{r}
+# Create the null distribution.
+null_dist <- cancer_in_dogs %>%
+  specify(response ~ order)%>%
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, type = "permute") %>%
+  calculate(stat = "diff in means", order = c("2,4-D","no 2,4-D"))
+head(null_dist,5)
+
+# Visualize the null distribution.
+null_dist %>%
+  visualize() +
+  shade_p_value(obs_stat = obs_test_stat, direction = "right", col = "blue", lty = 1, lwd = 1)
+```
+
+
+
+```{r}
+# Compute the p-value.
+null_dist %>%
+  get_p_value(obs_stat = obs_test_stat, direction = "right")
+```
+
+Since the p-value < 0.05 (significance $\alpha$ level) we reject the null hypothesis and support the alternative. We concluded that there is a significant difference in the means, where the dogs that are exposed to 2,4-D are favored.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
